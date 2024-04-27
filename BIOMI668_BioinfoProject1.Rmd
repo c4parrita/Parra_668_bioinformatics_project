@@ -1,0 +1,79 @@
+---
+title: "Analysis, visualization, and integration of spatial datasets with Seurat"
+output: html_notebook
+---
+
+
+```{r}
+library(Seurat)
+library(ggplot2)
+library(patchwork)
+```
+
+
+```{r}
+options(SeuratData.repo.use = "http://seurat.nygenome.org")
+```
+
+```{r}
+reference <- readRDS("/Users/carolinaparra/Downloads/pbmc_multimodal_2023.rds")
+```
+
+```{r}
+DimPlot(object = reference, reduction = "wnn.umap", group.by = "celltype.l2", label = TRUE, label.size = 3, repel = TRUE) + NoLegend()
+```
+
+```{r}
+install.packages("/Users/carolinaparra/seurat-data-master", repos = NULL, type = "source")
+
+```
+
+```{r}
+library(SeuratData)
+InstallData('pbmc3k')
+
+pbmc3k <- LoadData('pbmc3k')
+pbmc3k <- UpdateSeuratObject(pbmc3k)
+```
+
+```{r}
+install.packages('BiocManager')
+BiocManager::install('glmGamPoi')
+pbmc3k <- SCTransform(pbmc3k, verbose = FALSE)
+```
+```{r}
+anchors <- FindTransferAnchors(
+  reference = reference,
+  query = pbmc3k,
+  normalization.method = "SCT",
+  reference.reduction = "spca",
+  dims = 1:50
+)
+```
+
+```{r}
+pbmc3k <- MapQuery(
+  anchorset = anchors,
+  query = pbmc3k,
+  reference = reference,
+  refdata = list(
+    celltype.l1 = "celltype.l1",
+    celltype.l2 = "celltype.l2",
+    predicted_ADT = "ADT"
+  ),
+  reference.reduction = "spca", 
+  reduction.model = "wnn.umap"
+)
+```
+
+```{r}
+p1 = DimPlot(pbmc3k, reduction = "ref.umap", group.by = "predicted.celltype.l1", label = TRUE, label.size = 3, repel = TRUE) + NoLegend()
+p2 = DimPlot(pbmc3k, reduction = "ref.umap", group.by = "predicted.celltype.l2", label = TRUE, label.size = 3 ,repel = TRUE) + NoLegend()
+p1 + p2
+```
+
+```{r}
+Idents(pbmc3k) <- 'predicted.celltype.l2'
+VlnPlot(pbmc3k, features = c("CLEC4C", "LILRA4"), sort = TRUE) + NoLegend()
+```
+
